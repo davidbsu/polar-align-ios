@@ -1327,6 +1327,43 @@
     </div>
   </div>
 
+  <!-- Réglage 4 : Lissage des capteurs -->
+  <div style="padding:14px 0;border-top:1px solid rgba(80,160,255,0.07)">
+    <div class="setting-label">〰️ Lissage des capteurs</div>
+    <div class="setting-sub" style="margin-bottom:12px">Stabilité de l'affichage azimut &amp; altitude</div>
+
+    <div class="radio-group">
+
+      <label class="radio-option">
+        <input type="radio" name="smooth-level" value="low">
+        <div class="radio-dot"></div>
+        <div>
+          <div class="radio-label">Faible</div>
+          <div class="radio-sub">Réactif — suit les corrections en temps réel</div>
+        </div>
+      </label>
+
+      <label class="radio-option">
+        <input type="radio" name="smooth-level" value="medium" checked>
+        <div class="radio-dot"></div>
+        <div>
+          <div class="radio-label">Moyen</div>
+          <div class="radio-sub">Bon compromis réactivité / stabilité</div>
+        </div>
+      </label>
+
+      <label class="radio-option">
+        <input type="radio" name="smooth-level" value="high">
+        <div class="radio-dot"></div>
+        <div>
+          <div class="radio-label">Fort</div>
+          <div class="radio-sub">Très stable — idéal si magnétomètre perturbé</div>
+        </div>
+      </label>
+
+    </div>
+  </div>
+
   <!-- Infos et mode d'emploi -->
   <div style="padding:14px 0;border-top:1px solid var(--border)">
     <a href="https://pam.thedavidsuniverse.fr/"
@@ -2008,8 +2045,8 @@ let tiltNS = 0, tiltEO = 0, heading = 0, deviceAltitude = 45;
 // alpha: 0 = very smooth/slow, 1 = no filtering
 // For level/tilt: high smoothing (slow gestures)
 // For heading/compass: moderate (can move faster)
-const ALPHA_LEVEL   = 0.05;  // very smooth — monture quasi-statique
-const ALPHA_HEADING = 0.15;  // filtre léger — le filtre complémentaire fait le gros du travail
+let ALPHA_LEVEL   = 0.1;   // modifiable via le réglage lissage
+let ALPHA_HEADING = 0.1;   // modifiable via le réglage lissage
 
 function lpf(prev, raw, alpha) {
   return prev + alpha * (raw - prev);
@@ -2783,6 +2820,27 @@ function closeOffcanvas() {
     // Appliquer immédiatement la correction au heading
     applyDeclCorrection();
   }
+
+  // Appliquer le réglage de lissage
+  const smooth = document.querySelector('input[name="smooth-level"]:checked');
+  if (smooth) applySmoothLevel(smooth.value);
+}
+
+// ─── Lissage des capteurs ─────────────────────────────────────────
+const SMOOTH_PRESETS = { low: 0.3, medium: 0.1, high: 0.03 };
+
+function applySmoothLevel(level) {
+  const alpha = SMOOTH_PRESETS[level] ?? 0.1;
+  ALPHA_LEVEL   = alpha;
+  ALPHA_HEADING = alpha;
+  localStorage.setItem('smoothLevel', level);
+}
+
+function loadSmoothLevel() {
+  const saved = localStorage.getItem('smoothLevel') || 'medium';
+  const radio = document.querySelector(`input[name="smooth-level"][value="${saved}"]`);
+  if (radio) radio.checked = true;
+  applySmoothLevel(saved);
 }
 
 // Afficher/masquer le champ manuel selon la sélection (UX uniquement, sans appliquer)
@@ -2803,6 +2861,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCalib();
   loadCompassCalib();
   loadCalibPopupPref();
+  loadSmoothLevel();
   document.querySelectorAll('input[name="pole-method"]').forEach(radio => {
     radio.addEventListener('change', () => {
       const row = document.getElementById('manual-decl-row');
