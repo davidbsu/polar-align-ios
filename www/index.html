@@ -2785,6 +2785,18 @@ function closeOffcanvas() {
 
 // Afficher/masquer le champ manuel selon la sélection (UX uniquement, sans appliquer)
 document.addEventListener('DOMContentLoaded', () => {
+  // ── Version app depuis Info.plist via Capacitor ──────────────────
+  // Synchronise automatiquement le numéro affiché avec celui de Xcode
+  try {
+    const { App } = Capacitor.Plugins;
+    App.getInfo().then(info => {
+      const el = document.getElementById('app-version');
+      if (el && info && info.version) {
+        el.textContent = 'v' + info.version;
+      }
+    }).catch(() => {});
+  } catch(e) {}
+
   // Charger les réglages d'étalonnage sauvegardés
   loadCalib();
   loadCompassCalib();
