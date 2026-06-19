@@ -1998,6 +1998,8 @@ let _rawHeadingMag = 0;
 // Magnétomètre brut iOS via Capacitor Motion
 let _magX = 0, _magY = 0, _magZ = 0;
 let _accX = 0, _accY = 0, _accZ = 0;
+// Flag : CMDeviceMotion actif (altitude précise à 0.01°)
+let _deviceMotionActive = false;
 
 // Smoothed values — what the UI actually reads
 let tiltNS = 0, tiltEO = 0, heading = 0, deviceAltitude = 45;
@@ -2832,7 +2834,7 @@ let currentStep = 0;
 const stepsDone = [false, false, false, false];
 
 // Tolerance thresholds (degrees)
-const TOL = { level: 0.2, alt: 0.3, az: 0.5 };
+const TOL = { level: 0.2, alt: 0.1, az: 0.1 };
 
 function wizardValues() {
   const eoErr  = tiltEO;
@@ -3223,13 +3225,16 @@ async function startSensors() {
     try { await DeviceMotionEvent.requestPermission(); } catch(e) {}
 
     // ── Orientation (@capacitor/motion) ──
-    // beta/gamma pour le niveau à bulle N-S et E-O
+    // Utilisé uniquement en fallback si deviceMotion du plugin Swift échoue
     await Motion.addListener('orientation', (event) => {
-      if (event.beta  !== null) _rawNS = event.beta;
-      if (event.gamma !== null) _rawEO = event.gamma;
-      _rawAlt = Math.max(0, Math.min(90, Math.abs(_rawNS)));
-      realOrientationReceived = true;
-      scheduleUI();
+      // Seulement si on n'a pas encore reçu de données deviceMotion
+      if (!_deviceMotionActive) {
+        if (event.beta  !== null) _rawNS = event.beta;
+        if (event.gamma !== null) _rawEO = event.gamma;
+        _rawAlt = Math.max(0, Math.min(90, Math.abs(_rawNS)));
+        realOrientationReceived = true;
+        scheduleUI();
+      }
     });
 
     // ── Accéléromètre brut (plugin Swift) ──
@@ -3239,6 +3244,19 @@ async function startSensors() {
       _accX = data.x * 9.81;
       _accY = data.y * 9.81;
       _accZ = data.z * 9.81;
+    });
+
+    // ── CMDeviceMotion (plugin Swift) — altitude précise à 0.01° ──
+    // Fusion gyroscope + accéléromètre via AHRS Apple
+    // pitch = inclinaison N-S = altitude polaire
+    // roll  = inclinaison E-O = niveau à bulle
+    await MagnetometerPlugin.addListener('deviceMotion', (data) => {
+      _deviceMotionActive = true;
+      _rawNS = data.pitch;
+      _rawEO = data.roll;
+      _rawAlt = Math.max(0, Math.min(90, Math.abs(_rawNS)));
+      realOrientationReceived = true;
+      scheduleUI();
     });
 
     // ── Magnétomètre brut (plugin Swift) ──
@@ -3304,6 +3322,7 @@ function stopSensors() {
     MagnetometerPlugin.removeAllListeners();
   } catch(e) {}
   realOrientationReceived = false;
+  _deviceMotionActive = false;
   _magX = 0; _magY = 0; _magZ = 0;
   _accX = 0; _accY = 0; _accZ = 0;
   _magDeclFromNoaa = false;
