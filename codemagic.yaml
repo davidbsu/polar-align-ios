@@ -22,7 +22,8 @@ workflows:
           npx cap sync ios
 
       - name: Install CocoaPods
-        script: cd ios/App && pod install
+        script: |
+          cd $CM_BUILD_DIR/ios/App && pod install --repo-update
 
       - name: Create ExportOptions.plist
         script: |
