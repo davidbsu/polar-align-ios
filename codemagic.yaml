@@ -52,12 +52,13 @@ workflows:
       - name: Copy .app to Payload folder
         script: |
           mkdir -p "$CM_BUILD_DIR/Payload"
-          cp -r "$CM_BUILD_DIR/PolarAlign.xcarchive/Products/Applications/$IOS_SCHEME.app" "$CM_BUILD_DIR/Payload/"
+          APP_PATH=$(find "$CM_BUILD_DIR/PolarAlign.xcarchive/Products/Applications" -name "*.app" | head -1)
+          cp -r "$APP_PATH" "$CM_BUILD_DIR/Payload/"
 
       - name: Create unsigned .ipa
         script: |
-          cd "$CM_BUILD_DIR/Payload"
-          zip -r "$CM_BUILD_DIR/PolarAlign.ipa" .
+          cd "$CM_BUILD_DIR"
+          zip -r "PolarAlign.ipa" Payload/
 
       - name: Move .ipa to artifacts folder
         script: |
