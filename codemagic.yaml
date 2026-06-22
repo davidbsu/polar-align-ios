@@ -3,13 +3,13 @@ workflows:
     name: PolarAlign iOS Unsigned Build
     instance_type: mac_mini_m1
     max_build_duration: 60
-    xcode: 16.3
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
         - $HOME/Library/Caches/CocoaPods
 
     environment:
+      xcode: "16.3"
       vars:
         IOS_PROJECT: "ios/App/App.xcodeproj"
         IOS_SCHEME: "App"
