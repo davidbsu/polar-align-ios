@@ -5,7 +5,7 @@
     {
       "name": "Polar Align",
       "bundleIdentifier": "com.davidbsu.polaralign.dev",
-      "developerName": "David Busseau",
+      "developerName": "David Blusseau",
       "subtitle": "Mise en station monture équatoriale",
       "localizedDescription": "Application d'aide à la mise en station des montures équatoriales astronomiques. Utilise le magnétomètre et les capteurs de mouvement pour guider l'alignement sur le pôle Nord céleste.",
       "iconURL": "https://davidbsu.github.io/polar-align-mount/polar-align-mount.png",
