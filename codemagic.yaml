@@ -39,12 +39,15 @@ workflows:
           </plist>
           EOF
 
+      - name: List available SDKs
+        script: xcodebuild -showsdks
+
       - name: Build IPA (ad-hoc signed)
         script: |
           xcodebuild archive \
             -project "$CM_BUILD_DIR/$IOS_PROJECT" \
             -scheme "$IOS_SCHEME" \
-            -sdk iphoneos \
+            -sdk iphoneos18.4 \
             -configuration Debug \
             -archivePath "$CM_BUILD_DIR/PolarAlign.xcarchive" \
             CODE_SIGNING_ALLOWED=YES \
@@ -52,7 +55,8 @@ workflows:
             CODE_SIGNING_REQUIRED=NO \
             EXPANDED_CODE_SIGN_IDENTITY="-" \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE=""
+            PROVISIONING_PROFILE="" \
+            IPHONEOS_DEPLOYMENT_TARGET=14.0
 
       - name: Copy .app to Payload folder
         script: |
