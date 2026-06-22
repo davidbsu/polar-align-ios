@@ -1,0 +1,27 @@
+{
+  "name": "Polar Align Repository",
+  "identifier": "com.davidbsu.altstore-repo",
+  "apps": [
+    {
+      "name": "Polar Align",
+      "bundleIdentifier": "com.davidbsu.polaralign.dev",
+      "developerName": "David Busseau",
+      "subtitle": "Mise en station monture équatoriale",
+      "localizedDescription": "Application d'aide à la mise en station des montures équatoriales astronomiques. Utilise le magnétomètre et les capteurs de mouvement pour guider l'alignement sur le pôle Nord céleste.",
+      "iconURL": "https://davidbsu.github.io/polar-align-mount/polar-align-mount.png",
+      "tintColor": "3a8fff",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "1.0.28",
+          "date": "2026-06-22",
+          "localizedDescription": "Version iOS native avec accès direct au magnétomètre via CoreMotion.",
+          "downloadURL": "https://github.com/davidbsu/polar-align-ios/releases/download/v1.0.28/PolarAlign-unsigned.ipa",
+          "size": 665670,
+          "minOSVersion": "14.0"
+        }
+      ]
+    }
+  ],
+  "news": []
+}
