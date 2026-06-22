@@ -1,0 +1,72 @@
+workflows:
+  ios-unsigned-build:
+    name: PolarAlign iOS Unsigned Build
+    instance_type: mac_mini_m2
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+        - $HOME/Library/Caches/CocoaPods
+
+    environment:
+      vars:
+        IOS_WORKSPACE: "ios/App/App.xcworkspace"
+        IOS_SCHEME: "App"
+
+    scripts:
+      - name: Install dependencies
+        script: npm install
+
+      - name: Capacitor sync
+        script: npx cap sync ios
+
+      - name: Install CocoaPods
+        script: cd ios/App && pod install
+
+      - name: Create ExportOptions.plist
+        script: |
+          cat > ios/App/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>compileBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Build IPA (unsigned)
+        script: |
+          xcodebuild archive \
+            -workspace "$CM_BUILD_DIR/$IOS_WORKSPACE" \
+            -scheme "$IOS_SCHEME" \
+            -sdk iphoneos \
+            -configuration Debug \
+            -archivePath "$CM_BUILD_DIR/PolarAlign.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Copy .app to Payload folder
+        script: |
+          mkdir -p "$CM_BUILD_DIR/Payload"
+          cp -r "$CM_BUILD_DIR/PolarAlign.xcarchive/Products/Applications/$IOS_SCHEME.app" "$CM_BUILD_DIR/Payload/"
+
+      - name: Create unsigned .ipa
+        script: |
+          cd "$CM_BUILD_DIR/Payload"
+          zip -r "$CM_BUILD_DIR/PolarAlign.ipa" .
+
+      - name: Move .ipa to artifacts folder
+        script: |
+          mkdir -p "$CM_BUILD_DIR/build/ios/ipa"
+          mv "$CM_BUILD_DIR/PolarAlign.ipa" "$CM_BUILD_DIR/build/ios/ipa/PolarAlign-unsigned.ipa"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
