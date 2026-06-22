@@ -1,15 +1,13 @@
 workflows:
   ios-unsigned-build:
     name: PolarAlign iOS Unsigned Build
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
     max_build_duration: 60
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
-        - $HOME/Library/Caches/CocoaPods
 
     environment:
-      xcode: "16.3"
       vars:
         IOS_PROJECT: "ios/App/App.xcodeproj"
         IOS_SCHEME: "App"
@@ -23,25 +21,7 @@ workflows:
           chmod -R 755 node_modules/.bin/
           npx cap sync ios
 
-      - name: Create ExportOptions.plist
-        script: |
-          cat > ios/App/ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>compileBitcode</key>
-            <false/>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Build .app (no archive, no signing)
+      - name: Build .app (no signing)
         script: |
           xcodebuild build \
             -project "$CM_BUILD_DIR/$IOS_PROJECT" \
@@ -55,19 +35,10 @@ workflows:
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE=""
 
-      - name: Install ldid
-        script: |
-          brew install ldid
-
-      - name: Sign .app with ldid
-        script: |
-          APP_PATH=$(find "$CM_BUILD_DIR/DerivedData" -name "*.app" -not -path "*/simulator/*" | head -1)
-          echo "Found app at: $APP_PATH"
-          ldid -S "$APP_PATH"
-
       - name: Create .ipa
         script: |
           APP_PATH=$(find "$CM_BUILD_DIR/DerivedData" -name "*.app" -not -path "*/simulator/*" | head -1)
+          echo "Found app at: $APP_PATH"
           mkdir -p "$CM_BUILD_DIR/Payload"
           cp -r "$APP_PATH" "$CM_BUILD_DIR/Payload/"
           cd "$CM_BUILD_DIR"
@@ -78,5 +49,3 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
