@@ -9,7 +9,7 @@ workflows:
 
     environment:
       vars:
-        IOS_WORKSPACE: "ios/App/App.xcworkspace"
+        IOS_PROJECT: "ios/App/App.xcodeproj"
         IOS_SCHEME: "App"
 
     scripts:
@@ -20,10 +20,6 @@ workflows:
         script: |
           chmod -R 755 node_modules/.bin/
           npx cap sync ios
-
-      - name: Install CocoaPods
-        script: |
-          cd $CM_BUILD_DIR/ios/App && pod install --repo-update
 
       - name: Create ExportOptions.plist
         script: |
@@ -46,7 +42,7 @@ workflows:
       - name: Build IPA (unsigned)
         script: |
           xcodebuild archive \
-            -workspace "$CM_BUILD_DIR/$IOS_WORKSPACE" \
+            -project "$CM_BUILD_DIR/$IOS_PROJECT" \
             -scheme "$IOS_SCHEME" \
             -sdk iphoneos \
             -configuration Debug \
