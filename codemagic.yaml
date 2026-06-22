@@ -39,7 +39,7 @@ workflows:
           </plist>
           EOF
 
-      - name: Build IPA (unsigned)
+      - name: Build IPA (ad-hoc signed)
         script: |
           xcodebuild archive \
             -project "$CM_BUILD_DIR/$IOS_PROJECT" \
@@ -47,7 +47,12 @@ workflows:
             -sdk iphoneos \
             -configuration Debug \
             -archivePath "$CM_BUILD_DIR/PolarAlign.xcarchive" \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            EXPANDED_CODE_SIGN_IDENTITY="-" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE=""
 
       - name: Copy .app to Payload folder
         script: |
