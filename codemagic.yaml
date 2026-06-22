@@ -41,38 +41,37 @@ workflows:
           </plist>
           EOF
 
-      - name: List available SDKs
-        script: xcodebuild -showsdks
-
-      - name: Build IPA (ad-hoc signed)
+      - name: Build .app (no archive, no signing)
         script: |
-          xcodebuild archive \
+          xcodebuild build \
             -project "$CM_BUILD_DIR/$IOS_PROJECT" \
             -scheme "$IOS_SCHEME" \
             -sdk iphoneos \
             -configuration Debug \
-            -archivePath "$CM_BUILD_DIR/PolarAlign.xcarchive" \
-            CODE_SIGNING_ALLOWED=YES \
-            CODE_SIGN_IDENTITY="-" \
+            -derivedDataPath "$CM_BUILD_DIR/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            EXPANDED_CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE="" \
-            IPHONEOS_DEPLOYMENT_TARGET=14.0
+            PROVISIONING_PROFILE=""
 
-      - name: Copy .app to Payload folder
+      - name: Install ldid
         script: |
+          brew install ldid
+
+      - name: Sign .app with ldid
+        script: |
+          APP_PATH=$(find "$CM_BUILD_DIR/DerivedData" -name "*.app" -not -path "*/simulator/*" | head -1)
+          echo "Found app at: $APP_PATH"
+          ldid -S "$APP_PATH"
+
+      - name: Create .ipa
+        script: |
+          APP_PATH=$(find "$CM_BUILD_DIR/DerivedData" -name "*.app" -not -path "*/simulator/*" | head -1)
           mkdir -p "$CM_BUILD_DIR/Payload"
-          APP_PATH=$(find "$CM_BUILD_DIR/PolarAlign.xcarchive/Products/Applications" -name "*.app" | head -1)
           cp -r "$APP_PATH" "$CM_BUILD_DIR/Payload/"
-
-      - name: Create unsigned .ipa
-        script: |
           cd "$CM_BUILD_DIR"
           zip -r "PolarAlign.ipa" Payload/
-
-      - name: Move .ipa to artifacts folder
-        script: |
           mkdir -p "$CM_BUILD_DIR/build/ios/ipa"
           mv "$CM_BUILD_DIR/PolarAlign.ipa" "$CM_BUILD_DIR/build/ios/ipa/PolarAlign-unsigned.ipa"
 
