@@ -17,7 +17,9 @@ workflows:
         script: npm install
 
       - name: Capacitor sync
-        script: npx cap sync ios
+        script: |
+          chmod -R 755 node_modules/.bin/
+          npx cap sync ios
 
       - name: Install CocoaPods
         script: cd ios/App && pod install
