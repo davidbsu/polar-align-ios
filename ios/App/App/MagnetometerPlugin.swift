@@ -23,13 +23,18 @@ public class MagnetometerPlugin: CAPPlugin, CAPBridgedPlugin {
         motionManager.accelerometerUpdateInterval = interval
         motionManager.deviceMotionUpdateInterval  = interval
 
+        print("[MagnetometerPlugin] start() called, hz=\(hz)")
+        print("[MagnetometerPlugin] isMagnetometerAvailable=\(motionManager.isMagnetometerAvailable)")
+        print("[MagnetometerPlugin] isAccelerometerAvailable=\(motionManager.isAccelerometerAvailable)")
+        print("[MagnetometerPlugin] isDeviceMotionAvailable=\(motionManager.isDeviceMotionAvailable)")
+
         guard motionManager.isMagnetometerAvailable else {
+            print("[MagnetometerPlugin] ERROR: Magnetometer not available")
             call.reject("Magnetometer not available on this device")
             return
         }
 
         // ── Magnétomètre brut ──────────────────────────────────────
-        // X/Y/Z en µT via CMMagnetometer — pour le calcul du cap azimut
         motionManager.startMagnetometerUpdates(to: queue) { [weak self] data, error in
             guard let self = self, let mag = data, error == nil else { return }
             self.notifyListeners("magnetometerData", data: [
@@ -40,7 +45,6 @@ public class MagnetometerPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         // ── Accéléromètre brut ─────────────────────────────────────
-        // X/Y/Z en g — pour la compensation de tilt du magnétomètre
         if motionManager.isAccelerometerAvailable {
             motionManager.startAccelerometerUpdates(to: queue) { [weak self] data, error in
                 guard let self = self, let acc = data, error == nil else { return }
@@ -52,11 +56,9 @@ public class MagnetometerPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
-        // ── CMDeviceMotion — altitude polaire précise ──────────────
-        // Fusion gyroscope + accéléromètre (AHRS Apple)
-        // pitch = inclinaison avant/arrière = altitude polaire
-        // roll  = inclinaison gauche/droite = niveau E-O
-        // Résolution : ~0.01° — bien supérieure à DeviceOrientationEvent (~0.1°)
+        // ── CMDeviceMotion ─────────────────────────────────────────
+        // Utilise .xMagneticNorthZVertical pour avoir le cap vrai
+        // heading = cap magnétique nord dans le plan horizontal
         if motionManager.isDeviceMotionAvailable {
             motionManager.startDeviceMotionUpdates(
                 using: .xMagneticNorthZVertical,
@@ -64,10 +66,9 @@ public class MagnetometerPlugin: CAPPlugin, CAPBridgedPlugin {
             ) { [weak self] data, error in
                 guard let self = self, let motion = data, error == nil else { return }
 
-                // Conversion radians → degrés
-                let pitch = motion.attitude.pitch * 180.0 / .pi  // inclinaison N-S
-                let roll  = motion.attitude.roll  * 180.0 / .pi  // inclinaison E-O
-                let yaw   = motion.attitude.yaw   * 180.0 / .pi  // cap (non utilisé ici)
+                let pitch = motion.attitude.pitch * 180.0 / .pi
+                let roll  = motion.attitude.roll  * 180.0 / .pi
+                let yaw   = motion.attitude.yaw   * 180.0 / .pi
 
                 self.notifyListeners("deviceMotion", data: [
                     "pitch": pitch,

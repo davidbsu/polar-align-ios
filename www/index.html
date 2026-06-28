@@ -7,8 +7,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- Capacitor runtime (injecté automatiquement par Xcode/Capacitor) -->
 <script src="capacitor.js"></script>
-<!-- Plugin magnétomètre natif Swift -->
-<script src="magnetometer-plugin.js"></script>
+<script>
+// Le plugin Magnetometer est enregistré côté Swift via bridge.registerPluginInstance()
+// Capacitor l'expose automatiquement dans Capacitor.Plugins après chargement de la WebView
+window.MagnetometerPlugin = null;
+window.__magnetometerReady = false;
+
+function __initMagnetometerPlugin() {
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Magnetometer) {
+      window.MagnetometerPlugin = window.Capacitor.Plugins.Magnetometer;
+      window.__magnetometerReady = true;
+      console.log('[MagnetometerPlugin] Plugin ready via Capacitor.Plugins');
+    } else {
+      setTimeout(__initMagnetometerPlugin, 100);
+    }
+  } catch(e) {
+    console.warn('[MagnetometerPlugin] Init error:', e);
+    setTimeout(__initMagnetometerPlugin, 100);
+  }
+}
+__initMagnetometerPlugin();
+</script>
 <title>PolAlign — Mise en Station</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
@@ -3276,65 +3296,64 @@ async function startSensors() {
   }
 
   // ── 2. Capteurs iOS natifs via plugin Swift MagnetometerPlugin ──
-  // CMMagnetometer + CMAccelerometer via CoreMotion — 20 Hz, résolution ~0.01°
+  // CMMagnetometer + CMAccelerometer + CMDeviceMotion via CoreMotion
   try {
-    const { Motion } = Capacitor.Plugins;
-
     // Demande de permission iOS 13+ pour le mouvement
     try { await DeviceMotionEvent.requestPermission(); } catch(e) {}
 
-    // ── Orientation (@capacitor/motion) ──
-    // Utilisé uniquement en fallback si deviceMotion du plugin Swift échoue
-    await Motion.addListener('orientation', (event) => {
-      // Seulement si on n'a pas encore reçu de données deviceMotion
-      if (!_deviceMotionActive) {
-        if (event.beta  !== null) _rawNS = event.beta;
-        if (event.gamma !== null) _rawEO = event.gamma;
+    // Attendre que le plugin magnétomètre soit initialisé (max 5 secondes)
+    let waitCount = 0;
+    while (!window.__magnetometerReady && waitCount < 100) {
+      await new Promise(r => setTimeout(r, 50));
+      waitCount++;
+    }
+    console.log('[Capteurs] magnetometerReady:', window.__magnetometerReady, 'après', waitCount * 50, 'ms');
+
+    if (window.MagnetometerPlugin) {
+      // ── Accéléromètre brut (plugin Swift) ──
+      await window.MagnetometerPlugin.addListener('accelerometerData', (data) => {
+        _accX = data.x * 9.81;
+        _accY = data.y * 9.81;
+        _accZ = data.z * 9.81;
+      });
+
+      // ── CMDeviceMotion (plugin Swift) — altitude précise à 0.01° ──
+      await window.MagnetometerPlugin.addListener('deviceMotion', (data) => {
+        _deviceMotionActive = true;
+        _rawNS = data.pitch;
+        _rawEO = data.roll;
         _rawAlt = Math.max(0, Math.min(90, Math.abs(_rawNS)));
+        // Utiliser le yaw de CMDeviceMotion (nord magnétique, fonctionne iPhone incliné)
+        // Yaw inversé : CMDeviceMotion donne le cap dans le sens opposé
+        if (data.yaw !== undefined) {
+          let yaw = (360 - data.yaw - 90 + 360) % 360;
+          _rawHeading = yaw;
+          _rawHeadingMag = (_rawHeading + (magDecl || 0) + 360) % 360;
+        }
         realOrientationReceived = true;
         scheduleUI();
-      }
-    });
+      });
 
-    // ── Accéléromètre brut (plugin Swift) ──
-    // Nécessaire pour la compensation de tilt dans updateHeadingFromMagnetometer()
-    await MagnetometerPlugin.addListener('accelerometerData', (data) => {
-      // CoreMotion : unités en g (1g ≈ 9.81 m/s²), axes identiques à Android
-      _accX = data.x * 9.81;
-      _accY = data.y * 9.81;
-      _accZ = data.z * 9.81;
-    });
+      // ── Magnétomètre brut (plugin Swift) ──
+      await window.MagnetometerPlugin.addListener('magnetometerData', (data) => {
+        _magX = data.x;
+        _magY = data.y;
+        _magZ = data.z;
+        // updateHeadingFromMagnetometer() désactivé — on utilise le yaw de CMDeviceMotion
+      });
 
-    // ── CMDeviceMotion (plugin Swift) — altitude précise à 0.01° ──
-    // Fusion gyroscope + accéléromètre via AHRS Apple
-    // pitch = inclinaison N-S = altitude polaire
-    // roll  = inclinaison E-O = niveau à bulle
-    await MagnetometerPlugin.addListener('deviceMotion', (data) => {
-      _deviceMotionActive = true;
-      _rawNS = data.pitch;
-      _rawEO = data.roll;
-      _rawAlt = Math.max(0, Math.min(90, Math.abs(_rawNS)));
+      // Démarrer le plugin à 20 Hz
+      await window.MagnetometerPlugin.start({ frequency: 20 });
+
       realOrientationReceived = true;
-      scheduleUI();
-    });
-
-    // ── Magnétomètre brut (plugin Swift) ──
-    // Données X/Y/Z en µT via CMMagnetometer — 20 Hz, sans paliers
-    await MagnetometerPlugin.addListener('magnetometerData', (data) => {
-      _magX = data.x;
-      _magY = data.y;
-      _magZ = data.z;
-      // Calcul du cap avec compensation de tilt (même algo qu'Android)
-      updateHeadingFromMagnetometer();
-    });
-
-    // Démarrer le plugin à 20 Hz
-    await MagnetometerPlugin.start({ frequency: 20 });
-
-    realOrientationReceived = true;
-    const st = document.getElementById('level-status');
-    st.className = 'status-badge status-ok';
-    st.innerHTML = '<div class="dot"></div> Capteurs actifs';
+      const st = document.getElementById('level-status');
+      st.className = 'status-badge status-ok';
+      st.innerHTML = '<div class="dot"></div> Capteurs actifs';
+    } else {
+      console.warn('[Capteurs] Plugin magnétomètre non disponible');
+      setOrientationStatus('erreur');
+      startSimulation();
+    }
 
   } catch (e) {
     console.warn('[Capteurs] Erreur démarrage :', e);
@@ -3377,8 +3396,10 @@ function stopSensors() {
     Motion.removeAllListeners();
   } catch(e) {}
   try {
-    await MagnetometerPlugin.stop();
-    MagnetometerPlugin.removeAllListeners();
+    if (window.MagnetometerPlugin) {
+      window.MagnetometerPlugin.stop();
+      window.MagnetometerPlugin.removeAllListeners();
+    }
   } catch(e) {}
   realOrientationReceived = false;
   _deviceMotionActive = false;
