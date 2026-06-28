@@ -59,6 +59,7 @@ __initMagnetometerPlugin();
     min-height: 100vh;
     overflow-x: hidden;
     position: relative;
+    padding-top: 0;
   }
 
   /* Starfield supprimé */
@@ -78,7 +79,7 @@ __initMagnetometerPlugin();
   /* Header */
   .header {
     text-align: center;
-    padding: 20px 0 8px;
+    padding: calc(6px + env(safe-area-inset-top)) 0 8px;
   }
   .header h1 {
     font-family: 'Orbitron', sans-serif;
@@ -932,7 +933,7 @@ __initMagnetometerPlugin();
   /* ══ Hamburger button ══ */
   .hamburger {
     position: fixed;
-    top: 16px;
+    top: calc(4px + env(safe-area-inset-top));
     right: 16px;
     z-index: 1000;
     width: 40px;
@@ -984,7 +985,7 @@ __initMagnetometerPlugin();
     border-left: 1px solid var(--border);
     z-index: 950;
     transition: right 0.3s ease;
-    padding: 24px 20px;
+    padding: 70px 20px 24px;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;

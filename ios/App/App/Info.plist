@@ -47,5 +47,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+    <key>NSMotionUsageDescription</key>
+    <string>Acces au magnetometre pour la mise en station de la monture equatoriale</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Acces GPS pour calculer la declinaison magnetique</string>
 </dict>
 </plist>
